@@ -4,6 +4,7 @@ from customers import get_customer_name
 from products import format_price
 from storage import load_json, save_json
 from time_utils import get_current_datetime
+from datetime import datetime, timedelta
 from validation import require_choice, validate_order_items
 
 
@@ -213,3 +214,37 @@ def format_order_report(report):
 def display_order_report(orders):
     """Wyświetla podstawowy raport zamówień."""
     print(format_order_report(build_order_report(orders)))
+
+
+def can_cancel_order(order):
+    """Sprawdza, czy zamówienie można anulować."""
+
+    status = order["status"]
+
+    if status not in ["NEW", "PROCESSING", "PAID"]:
+        return False, "Zamówienia o tym statusie nie można anulować."
+
+    if status in ["PROCESSING", "PAID"]:
+        created_at = datetime.fromisoformat(order["created_at"])
+        elapsed_time = get_current_datetime() - created_at
+
+        time_limit = 15 if status == "PROCESSING" else 30
+
+        if elapsed_time > timedelta(minutes=time_limit):
+            return False, f"Przekroczono limit {time_limit} minut dla statusu {status}."
+
+    return True, "Zamówienie może zostać anulowane."
+
+
+def cancel_order(orders, order):
+    """Anuluje zamówienie po sprawdzeniu warunków."""
+
+    can_cancel, message = can_cancel_order(order)
+
+    if not can_cancel:
+        return False, message
+
+    order["status"] = "CANCELLED"
+    save_orders(orders)
+
+    return True, "Zamówienie zostało anulowane."
