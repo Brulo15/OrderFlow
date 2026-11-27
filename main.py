@@ -7,6 +7,8 @@ from orders import (
     PAYMENT_METHODS,
     add_order,
     build_order_item,
+    can_cancel_order,
+    cancel_order,
     change_order_status,
     create_order,
     display_order_details,
@@ -28,7 +30,7 @@ from validation import is_valid_identifier, parse_positive_integer
 
 def show_menu():
     print("\n" + "=" * 44)
-    print("              ORDERFLOW")
+    print("             ORDERFLOW")
     print("       Order Management System")
     print("=" * 44)
     print("1. Lista zamówień")
@@ -36,6 +38,7 @@ def show_menu():
     print("3. Utwórz zamówienie")
     print("4. Zmień status zamówienia")
     print("5. Raport zamówień")
+    print("6. Anuluj zamówienie")
     print("0. Zakończ")
     print("-" * 44)
 
@@ -183,6 +186,54 @@ def handle_order_creation():
     add_order(orders, order)
     print(f'\nUtworzono zamówienie {order["id"]} o wartości {format_price(order["total"])}.\n')
 
+def handle_order_cancellation():
+    """Obsługuje proces anulowania zamówienia."""
+
+    order_id = input("Podaj ID zamówienia: ").strip()
+
+    if not is_valid_identifier(order_id, "ORD"):
+        print("ID zamówienia powinno mieć format ORD-0001.\n")
+        return
+
+    orders = load_orders()
+    order = find_order_by_id(orders, order_id)
+
+    if order is None:
+        print("Nie znaleziono zamówienia.\n")
+        return
+
+    print(f"\nZamówienie: {order['id']}")
+    print(f"Aktualny status: {order['status']}")
+    print(f"Metoda płatności: {order['payment_method']}")
+
+    can_cancel, message = can_cancel_order(order)
+
+    if not can_cancel:
+        print(f"Nie można anulować zamówienia: {message}\n")
+        return
+
+    print(message)
+
+    confirmation = input(
+        "Czy na pewno chcesz anulować zamówienie? (T/N): "
+    ).strip().upper()
+
+    if confirmation != "T":
+        print("Anulowanie zostało przerwane. Dane pozostają bez zmian.\n")
+        return
+
+    success, message = cancel_order(orders, order)
+
+    if not success:
+        print(f"Nie udało się anulować zamówienia: {message}\n")
+        return
+
+    print(message)
+
+    if order["payment_method"] in ["CARD", "TRANSFER"]:
+        print("UWAGA: Zwrot pieniędzy należy wykonać ręcznie.")
+
+    print()
 
 def handle_status_change():
     """Obsługuje podstawową zmianę statusu zamówienia."""
@@ -228,6 +279,7 @@ def main():
         "3": handle_order_creation,
         "4": handle_status_change,
         "5": handle_order_report,
+        "6": handle_order_cancellation,
     }
 
     while True:
